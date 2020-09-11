@@ -186,16 +186,18 @@ class SkylinkSignalingServer {
   offer(...args) {
     const room = args[0];
     const peerId = args[1];
-    const state = Skylink.getSkylinkState(room.id);
-    if (state.peerConnections[peerId].negotiating) {
-      logger.log.DEBUG([peerId, TAGS.SIG_SERVER, null, `${MESSAGES.SIGNALING.ABORTING_OFFER}`]);
-      return;
-    }
+    setTimeout(() => {
+      const state = Skylink.getSkylinkState(room.id);
+      if (state.peerConnections[peerId].negotiating) {
+        logger.log.DEBUG([peerId, TAGS.SIG_SERVER, null, `${MESSAGES.SIGNALING.ABORTING_OFFER}`]);
+        return;
+      }
 
-    this.messageBuilder.getOfferMessage(...args).then((offer) => {
-      this.sendMessage(offer);
-      this.dispatchHandshakeProgress(state, 'OFFER');
-    });
+      this.messageBuilder.getOfferMessage(...args).then((offer) => {
+        this.sendMessage(offer);
+        this.dispatchHandshakeProgress(state, 'OFFER');
+      });
+    }, 100);
   }
 
   welcome(...args) {
