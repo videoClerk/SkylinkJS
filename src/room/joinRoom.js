@@ -9,6 +9,7 @@ import SkylinkApiResponse from '../models/api-response';
 import SkylinkState from '../models/skylink-state';
 import MediaStream from '../media-stream/index';
 import mediaStreamHelpers from '../media-stream/helpers';
+import MESSAGES from '../messages';
 
 const buildCachedApiResponse = (skylinkApiResponse) => {
   const cachedResponse = clone(skylinkApiResponse);
@@ -30,19 +31,25 @@ const addNewStateAndCacheApiResponse = (response, options) => {
 
 /**
  * @description Method that starts the Room Session.
- * @param {joinRoomOptions} [options] The options available to join the room and configure the session.
+ * @param {joinRoomOptions} [opts] The options available to join the room and configure the session.
  * @param {MediaStream} [prefetchedStream] The prefetched media stream object obtained when the user calls getUserMedia before joinRoom.
  * @return {Promise} Promise object with MediaStream.
  * @memberOf Room
  * @alias Room.joinRoom
  * @private
  */
-const joinRoom = (options = {}, prefetchedStream) => new Promise((resolve, reject) => {
+const joinRoom = (opts = {}, prefetchedStream = null) => new Promise((resolve, reject) => {
+  const options = opts || {};
   const apiServer = new SkylinkAPIServer();
   const signalingServer = new SkylinkSignalingServer();
   const initOptions = Skylink.getInitOptions();
   const handleClientStats = new HandleClientStats();
   const roomName = SkylinkAPIServer.getRoomNameFromParams(options) ? SkylinkAPIServer.getRoomNameFromParams(options) : initOptions.defaultRoom;
+
+  if (!roomName) {
+    reject(MESSAGES.ROOM_STATE.NO_ROOM_NAME);
+    return;
+  }
 
   dispatchEvent(readyStateChange({
     readyState: constants.READY_STATE_CHANGE.LOADING,
@@ -62,8 +69,9 @@ const joinRoom = (options = {}, prefetchedStream) => new Promise((resolve, rejec
         const userMediaParams = Object.assign({}, options);
 
         userMediaParams.room = room;
-        if (prefetchedStream || (options.id && options.active)) { // check for prefetched stream as the only arg
-          MediaStream.usePrefetchedStream(response.room_key, prefetchedStream, options).then(() => {
+        // has prefetchedStream or has passed in a mediaStream as first argument or has passed in an array of mediaStreams as first argument
+        if (prefetchedStream || (options.id && options.active) || Array.isArray(options)) {
+          MediaStream.processPrefetchedStreams(response.room_key, prefetchedStream, options).then(() => {
             signalingServer.joinRoom(room);
             resolve(null);
           }).catch((error) => {
